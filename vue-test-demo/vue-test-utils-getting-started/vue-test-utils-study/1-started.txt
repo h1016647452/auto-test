@@ -1,0 +1,1384 @@
+快速尝鲜 Vue Test Utils 的办法就是克隆我们的 demo 仓库再加上基本的设置和依赖安装。
+
+git clone https://github.com/vuejs/vue-test-utils-getting-started
+cd vue-test-utils-getting-started
+npm install
+你会发现该工程包含了一个简单的组件 counter.js：
+
+// counter.js
+
+export default {
+  template: `
+    <div>
+      <span class="count">{{ count }}</span>
+      <button @click="increment">Increment</button>
+    </div>
+  `,
+
+  data () {
+    return {
+      count: 0
+    }
+  },
+
+  methods: {
+    increment () {
+      this.count++
+    }
+  }
+}
+# 挂载组件
+Vue Test Utils 通过将它们隔离挂载，然后模拟必要的输入 (prop、注入和用户事件) 和对输出 (渲染结果、触发的自定义事件) 的断言来测试 Vue 组件。
+
+被挂载的组件会返回到一个包裹器内，而包裹器会暴露很多封装、遍历和查询其内部的 Vue 组件实例的便捷的方法。
+
+你可以通过 mount 方法来创建包裹器。让我们创建一个名叫 test.js 的文件：
+
+// test.js
+
+// 从测试实用工具集中导入 `mount()` 方法
+// 同时导入你要测试的组件
+import { mount } from '@vue/test-utils'
+import Counter from './counter'
+
+// 现在挂载组件，你便得到了这个包裹器
+const wrapper = mount(Counter)
+
+// 你可以通过 `wrapper.vm` 访问实际的 Vue 实例
+const vm = wrapper.vm
+
+// 在控制台将其记录下来即可深度审阅包裹器
+// 我们对 Vue Test Utils 的探索也由此开始
+console.log(wrapper)
+# 测试组件渲染出来的 HTML
+现在我们已经有了这个包裹器，我们能做的第一件事就是认证该组件渲染出来的 HTML 符合预期。
+
+import { mount } from '@vue/test-utils'
+import Counter from './counter'
+
+describe('计数器', () => {
+  // 现在挂载组件，你便得到了这个包裹器
+  const wrapper = mount(Counter)
+
+  it('渲染正确的标记', () => {
+    expect(wrapper.html()).toContain('<span class="count">0</span>')
+  })
+
+  // 也便于检查已存在的元素
+  it('是一个按钮', () => {
+    expect(wrapper.contains('button')).toBe(true)
+  })
+})
+现在运行 npm test 进行测试。你应该看得到测试通过。
+
+# 模拟用户交互
+当用户点击按钮的时候，我们的计数器应该递增。为了模拟这一行为，我们首先需要通过 wrapper.find() 定位该按钮，此方法返回一个该按钮元素的包裹器。然后我们能够通过对该按钮包裹器调用 .trigger() 来模拟点击。
+
+it('点击按钮应该使得计数递增', () => {
+  expect(wrapper.vm.count).toBe(0)
+  const button = wrapper.find('button')
+  button.trigger('click')
+  expect(wrapper.vm.count).toBe(1)
+})
+# 关于 nextTick 怎么办？
+Vue 会异步的将未生效的 DOM 更新批量应用，以避免因数据反复突变而导致的无谓的重渲染。这也是为什么在实践过程中我们经常在触发状态改变后用 Vue.nextTick 来等待 Vue 把实际的 DOM 更新做完的原因。
+
+为了简化用法，Vue Test Utils 同步应用了所有的更新，所以你不需要在测试中使用 Vue.nextTick 来等待 DOM 更新。
+
+注意：当你需要为诸如异步回调或 Promise 解析等操作显性改进为事件循环的时候，nextTick 仍然是必要的。
+
+如果你仍然需要在自己的测试文件中使用 nextTick，注意任何在其内部被抛出的错误可能都不会被测试运行器捕获，因为其内部使用了 Promise。关于这个问题有两个建议：要么你可以在测试的一开始将 Vue 的全局错误处理器设置为 done 回调，要么你可以在调用 nextTick 时不带参数让其作为一个 Promise 返回：
+
+// 这不会被捕获
+it('will time out', (done) => {
+  Vue.nextTick(() => {
+    expect(true).toBe(false)
+    done()
+  })
+})
+
+// 接下来的两项测试都会如预期工作
+it('will catch the error using done', (done) => {
+  Vue.config.errorHandler = done
+  Vue.nextTick(() => {
+    expect(true).toBe(false)
+    done()
+  })
+})
+
+it('will catch the error using a promise', () => {
+  return Vue.nextTick()
+    .then(function () {
+      expect(true).toBe(false)
+    })
+})
+# 下一步是什么
+选择一个测试运行器以把 Vue Test Utils 集成到你的工程里。
+移步撰写测试的常见技巧以学习更多。
+# 常用技巧
+# 明白要测试的是什么
+对于 UI 组件来说，我们不推荐一味追求行级覆盖率，因为它会导致我们过分关注组件的内部实现细节，从而导致琐碎的测试。
+
+取而代之的是，我们推荐把测试撰写为断言你的组件的公共接口，并在一个黑盒内部处理它。一个简单的测试用例将会断言一些输入 (用户的交互或 prop 的改变) 提供给某组件之后是否导致预期结果 (渲染结果或触发自定义事件)。
+
+比如，对于每次点击按钮都会将计数加一的 Counter 组件来说，其测试用例将会模拟点击并断言渲染结果会加 1。该测试并没有关注 Counter 如何递增数值，而只关注其输入和输出。
+
+该提议的好处在于，即便该组件的内部实现已经随时间发生了改变，只要你的组件的公共接口始终保持一致，测试就可以通过。
+
+这个话题的细节在 Matt O'Connell 一份非常棒的演讲中有更多的讨论。
+
+# 浅渲染
+在测试用例中，我们通常希望专注在一个孤立的单元中测试组件，避免对其子组件的行为进行间接的断言。
+
+额外的，对于包含许多子组件的组件来说，整个渲染树可能会非常大。重复渲染所有的子组件可能会让我们的测试变慢。
+
+Vue Test Utils 允许你通过 shallowMount 方法只挂载一个组件而不渲染其子组件 (即保留它们的存根)：
+
+import { shallowMount } from '@vue/test-utils'
+
+const wrapper = shallowMount(Component) // 返回一个包裹器，包含一个挂载的组件实例
+wrapper.vm // 挂载的 Vue 实例
+# 断言触发的事件
+每个挂载的包裹器都会通过其背后的 Vue 实例自动记录所有被触发的事件。你可以用 wrapper.emitted() 方法取回这些事件记录。
+
+wrapper.vm.$emit('foo')
+wrapper.vm.$emit('foo', 123)
+
+/*
+`wrapper.emitted()` 返回以下对象：
+{
+  foo: [[], [123]]
+}
+*/
+然后你可以基于这些数据来设置断言：
+
+// 断言事件已经被触发
+expect(wrapper.emitted().foo).toBeTruthy()
+
+// 断言事件的数量
+expect(wrapper.emitted().foo.length).toBe(2)
+
+// 断言事件的有效数据
+expect(wrapper.emitted().foo[1]).toEqual([123])
+你也可以调用 wrapper.emittedByOrder() 获取一个按触发先后排序的事件数组。
+
+# 操作组件状态
+你可以在包裹器上用 setData 或 setProps 方法直接操作组件状态：
+
+wrapper.setData({ count: 10 })
+
+wrapper.setProps({ foo: 'bar' })
+# 仿造 Prop
+你可以使用 Vue 在内置 propsData 选项向组件传入 prop：
+
+import { mount } from '@vue/test-utils'
+
+mount(Component, {
+  propsData: {
+    aProp: 'some value'
+  }
+})
+你也可以用 wrapper.setProps({}) 方法更新这些已经挂载的组件的 prop：
+
+想查阅所有选项的完整列表，请移步该文档的挂载选项章节。
+
+# 应用全局的插件和混入
+有些组件可能依赖一个全局插件或混入 (mixin) 的功能注入，比如 vuex 和 vue-router。
+
+如果你在为一个特定的应用撰写组件，你可以在你的测试入口处一次性设置相同的全局插件和混入。但是有些情况下，比如测试一个可能会跨越不同应用共享的普通的组件套件的时候，最好还是在一个更加隔离的设置中测试你的组件，不对全局的 Vue 构造函数注入任何东西。我们可以使用 createLocalVue 方法来存档它们：
+
+import { createLocalVue } from '@vue/test-utils'
+
+// 创建一个扩展的 `Vue` 构造函数
+const localVue = createLocalVue()
+
+// 正常安装插件
+localVue.use(MyPlugin)
+
+// 在挂载选项中传入 `localVue`
+mount(Component, {
+  localVue
+})
+注意有些插件会为全局的 Vue 构造函数添加只读属性，比如 Vue Router。这使得我们无法在一个 localVue 构造函数上二次安装该插件，或伪造这些只读属性。
+
+# 仿造注入
+另一个注入 prop 的策略就是简单的仿造它们。你可以使用 mocks 选项：
+
+import { mount } from '@vue/test-utils'
+
+const $route = {
+  path: '/',
+  hash: '',
+  params: { id: '123' },
+  query: { q: 'hello' }
+}
+
+mount(Component, {
+  mocks: {
+    $route // 在挂载组件之前添加仿造的 `$route` 对象到 Vue 实例中
+  }
+})
+# 处理路由
+因为路由需要在应用的全局结构中进行定义，且引入了很多组件，所以最好集成到 end-to-end 测试。对于依赖 vue-router 功能的独立的组件来说，你可以使用上面提到的技术仿造它们。
+
+# 探测样式
+当你的测试运行在 jsdom 中时，可以只探测到内联样式。
+
+# 测试键盘、鼠标等其它 DOM 事件
+# 触发事件
+Wrapper 暴露了一个 trigger 方法。它可以用来触发 DOM 事件。
+
+const wrapper = mount(MyButton)
+
+wrapper.trigger('click')
+你应该注意到了，find 方法也会返回一个 Wrapper。假设 MyComponent 包含一个按钮，下面的代码会点击这个按钮。
+
+const wrapper = mount(MyComponent)
+
+wrapper.find('button').trigger('click')
+# 选项
+其 trigger 方法接受一个可选的 options 对象。这个 options 对象里的属性会被添加到事件中。
+
+注意其目标不能被添加到 options 对象中。
+
+const wrapper = mount(MyButton)
+
+wrapper.trigger('click', { button: 0 })
+# 鼠标点击示例
+待测试的组件
+
+<template>
+<div>
+  <button class="yes" @click="callYes">Yes</button>
+  <button class="no" @click="callNo">No</button>
+</div>
+</template>
+<script>
+export default {
+  name: 'YesNoComponent',
+  props: {
+    callMe: {
+      type: Function
+    }
+  },
+  methods: {
+    callYes() {
+      this.callMe('yes')
+    },
+    callNo() {
+      this.callMe('no')
+    }
+  }
+}
+</script>
+
+测试
+
+import YesNoComponent from '@/components/YesNoComponent'
+import { mount } from '@vue/test-utils'
+import sinon from 'sinon'
+
+describe('点击事件', () => {
+  it('在 yes 按钮上点击会调用我们的方法并附带参数 "yes"', () => {
+    const spy = sinon.spy()
+    const wrapper = mount(YesNoComponent, {
+      propsData: {
+        callMe: spy
+      }
+    })
+    wrapper.find('button.yes').trigger('click')
+
+    spy.should.have.been.calledWith('yes')
+  })
+})
+# 键盘示例
+待测试的组件
+
+这个组件允许使用不同的按键将数量递增/递减。
+
+<template>
+<input type="text" @keydown.prevent="onKeydown" v-model="quantity" />
+</template>
+<script>
+const KEY_DOWN = 40
+const KEY_UP = 38
+const ESCAPE = 27
+const CHAR_A = 65
+
+export default {
+  data() {
+    return {
+      quantity: 0
+    }
+  },
+  methods: {
+    increment() {
+      this.quantity += 1
+    },
+    decrement() {
+      this.quantity -= 1
+    },
+    clear() {
+      this.quantity = 0
+    },
+    onKeydown(e) {
+      if (e.keyCode === ESCAPE) {
+        this.clear()
+      }
+      if (e.keyCode === KEY_DOWN) {
+        this.decrement()
+      }
+      if (e.keyCode === KEY_UP) {
+        this.increment()
+      }
+      if (e.which === CHAR_A) {
+        this.quantity = 13
+      }
+    }
+  },
+  watch: {
+    quantity: function (newValue) {
+      this.$emit('input', newValue)
+    }
+  }
+}
+</script>
+
+Test
+
+import QuantityComponent from '@/components/QuantityComponent'
+import { mount } from '@vue/test-utils'
+
+describe('键盘事件测试', () => {
+  it('默认的数量是零', () => {
+    const wrapper = mount(QuantityComponent)
+    expect(wrapper.vm.quantity).toBe(0)
+  })
+
+  it('上按键将数量设置为 1', () => {
+    const wrapper = mount(QuantityComponent)
+    wrapper.trigger('keydown.up')
+    expect(wrapper.vm.quantity).toBe(1)
+  })
+
+  it('下按键将数量减 1', () => {
+    const wrapper = mount(QuantityComponent)
+    wrapper.vm.quantity = 5
+    wrapper.trigger('keydown.down')
+    expect(wrapper.vm.quantity).toBe(4)
+  })
+
+  it('ESC 键将数量设置为 0', () => {
+    const wrapper = mount(QuantityComponent)
+    wrapper.vm.quantity = 5
+    wrapper.trigger('keydown.esc')
+    expect(wrapper.vm.quantity).toBe(0)
+  })
+
+  it('魔术字符 "a" 键将数量设置为 13', () => {
+    const wrapper = mount(QuantityComponent)
+    wrapper.trigger('keydown', {
+      which: 65
+    })
+    expect(wrapper.vm.quantity).toBe(13)
+  })
+})
+
+限制
+
+点后面的按键名 keydown.up 会被翻译成一个 keyCode。这些被支持的按键名有：
+
+key name	key code
+enter	13
+esc	27
+tab	9
+space	32
+delete	46
+backspace	8
+insert	45
+up	38
+down	40
+left	37
+right	39
+end	35
+home	36
+pageup	33
+pagedown	34
+# 重要事项
+Vue Test Utils 是同步触发事件。因此 Vue.nextTick 不是必须的。
+
+# 选择一个测试运行器
+测试运行器 (test runner) 就是运行测试的程序。
+
+主流的 JavaScript 测试运行器有很多，但 Vue Test Utils 都能够支持。它是测试运行器无关的。
+
+当然在我们选用测试运行器的时候也需要考虑一些事项：功能集合、性能和对单文件组件预编译的支持等。在仔细比对现有的库之后，我们推荐其中的两个测试运行器：
+
+Jest 是功能最全的测试运行器。它所需的配置是最少的，默认安装了 JSDOM，内置断言且命令行的用户体验非常好。不过你需要一个能够将单文件组件导入到测试中的预处理器。我们已经创建了 vue-jest 预处理器来处理最常见的单文件组件特性，但仍不是 vue-loader 100% 的功能。
+
+mocha-webpack 是一个 webpack + Mocha 的包裹器，同时包含了更顺畅的接口和侦听模式。这些设置的好处在于我们能够通过 webpack + vue-loader 得到完整的单文件组件支持，但这本身是需要很多配置的。
+
+# 浏览器环境
+Vue Test Utils 依赖浏览器环境。技术上讲你可以将其运行在一个真实的浏览器，但是我们并不推荐，因为在不同的平台上都启动真实的浏览器是很复杂的。我们推荐取而代之的是用 JSDOM 在 Node 虚拟浏览器环境运行测试。
+
+Jest 测试运行器自动设置了 JSDOM。对于其它测试运行器来说，你可以在你的测试入口处使用 jsdom-global 手动设置 JSDOM。
+
+npm install --save-dev jsdom jsdom-global
+// 在测试的设置 / 入口中
+require('jsdom-global')()
+# 测试单文件组件
+Vue 的单文件组件在它们运行于 Node 或浏览器之前是需要预编译的。我们推荐两种方式完成编译：通过一个 Jest 预编译器，或直接使用 webpack。
+
+vue-jest 预处理器支持基本的单文件组件功能，但是目前还不能处理样式块和自定义块，这些都只在 vue-loader 中支持。如果你依赖这些功能或其它 webpack 特有的配置项，那么你需要基于 webpack + vue-loader 进行设置。
+
+对于不同的设置方式请移步下面的教程：
+
+用 Jest 测试单文件组件
+用 Mocha 和 webpack 测试单文件组件
+# 相关资料
+测试运行器性能比拼
+使用 Jest 的示例工程
+使用 Mocha 的示例工程
+使用 tape 的示例工程
+使用 AVA 的示例工程
+tyu - Delightful web testing by egoist
+# 用 Jest 测试单文件组件
+我们在 GitHub（https://github.com/vuejs/vue-test-utils-jest-example） 上放有一个关于这些设置的示例工程。
+
+Jest 是一个由 Facebook 开发的测试运行器，致力于提供一个“bettery-included”单元测试解决方案。你可以在其官方文档学习到更多 Jest 的知识。
+
+# 安装 Jest
+我们假定你在一开始已经安装并配置好了 webpack、vue-loader 和 Babel——例如通过 vue-cli 创建了 webpack-simple 模板脚手架。
+
+我们要做的第一件事就是安装 Jest 和 Vue Test Utils：
+
+$ npm install --save-dev jest @vue/test-utils
+然后我们需要在 package.json 中定义一个单元测试的脚本。
+
+// package.json
+{
+  "scripts": {
+    "test": "jest"
+  }
+}
+# 在 Jest 中处理单文件组件
+为了告诉 Jest 如何处理 *.vue 文件，我们需要安装和配置 vue-jest 预处理器：
+
+npm install --save-dev vue-jest
+接下来在 package.json 中创建一个 jest 块：
+
+{
+  // ...
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      // 告诉 Jest 处理 `*.vue` 文件
+      "vue"
+    ],
+    "transform": {
+      // 用 `vue-jest` 处理 `*.vue` 文件
+      ".*\\.(vue)$": "<rootDir>/node_modules/vue-jest"
+    }
+  }
+}
+注意：vue-jest 目前并不支持 vue-loader 所有的功能，比如自定义块和样式加载。额外的，诸如代码分隔等 webpack 特有的功能也是不支持的。如果要使用这些不支持的特性，你需要用 Mocha 取代 Jest 来运行你的测试，同时用 webpack 来编译你的组件。想知道如何起步，请阅读教程里的用 Mocha + webpack 测试单文件组件。
+
+# 处理 webpack 别名
+如果你在 webpack 中配置了别名解析，比如把 @ 设置为 /src 的别名，那么你也需要用 moduleNameMapper 选项为 Jest 增加一个匹配配置：
+
+{
+  // ...
+  "jest": {
+    // ...
+    // 支持源代码中相同的 `@` -> `src` 别名
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    }
+  }
+}
+# 为 Jest 配置 Babel
+尽管最新版本的 Node 已经支持绝大多数的 ES2015 特性，你可能仍然想要在你的测试中使用 ES modules 语法和 stage-x 的特性。为此我们需要安装 babel-jest：
+
+npm install --save-dev babel-jest
+接下来，我们需要在 package.json 的 jest.transform 里添加一个入口，来告诉 Jest 用 babel-jest 处理 JavaScript 测试文件：
+
+{
+  // ...
+  "jest": {
+    // ...
+    "transform": {
+      // ...
+      // 用 `babel-jest` 处理 js
+      "^.+\\.js$": "<rootDir>/node_modules/babel-jest"
+    },
+    // ...
+  }
+}
+默认情况下，babel-jest 会在其安装完毕后自动进行配置。尽管如此，因为我们已经显性的添加了对 *.vue 文件的转换，所以现在我们也需要显性的配置 babel-jest。
+
+我们假设 webpack 使用了 babel-preset-env，这时默认的 Babel 配置会关闭 ES modules 的转译，因为 webpack 已经可以处理 ES modules 了。然而，我们还是需要为我们的测试而开启它，因为 Jest 的测试用例会直接运行在 Node 上。
+
+同样的，我们可以告诉 babel-preset-env 面向我们使用的 Node 版本。这样做会跳过转译不必要的特性使得测试启动更快。
+
+为了仅在测试时应用这些选项，可以把它们放到一个独立的 env.test 配置项中 (这会被 babel-jest 自动获取)。
+
+.babelrc 文件示例：
+
+{
+  "presets": [
+    ["env", { "modules": false }]
+  ],
+  "env": {
+    "test": {
+      "presets": [
+        ["env", { "targets": { "node": "current" }}]
+      ]
+    }
+  }
+}
+# 测试快照
+你可以使用 vue-server-renderer 将组件渲染为一个字符串，这样它就可以为 Jest 快照测试 保存一个快照。
+
+vue-server-renderer 的渲染结果包含了一些服务端渲染特有的特性，且忽略空格，也不易于检索变更。我们可以通过一个自定义的序列化程序来改进被保存的快照：
+
+npm install --save-dev jest-serializer-vue
+然后在 package.json 中配置它：
+
+{
+  // ...
+  "jest": {
+    // ...
+    // 快照的序列化程序
+    "snapshotSerializers": [
+      "<rootDir>/node_modules/jest-serializer-vue"
+    ]
+  }
+}
+# 放置测试文件
+默认情况下，Jest 将会递归的找到整个工程里所有 .spec.js 或 .test.js 扩展名的文件。如果这不符合你的需求，你也可以在 package.json 里的配置段落中改变它的 testRegex。
+
+Jest 推荐你在被测试代码的所在目录下创建一个 __tests__ 目录，但你也可以为你的测试文件随意设计自己习惯的文件结构。不过要当心 Jest 会为快照测试在临近测试文件的地方创建一个 __snapshots__ 目录。
+
+# 测试覆盖率
+Jest 可以被用来生成多种格式的测试覆盖率报告。以下是一个简单的起步的例子：
+
+扩展你的 jest 配置 (通常在 package.json 或 jest.config.js 中) 的 collectCoverage 选项，然后添加 collectCoverageFrom 数组来定义需要收集测试覆盖率信息的文件。
+
+{
+  "jest": {
+    // ...
+    "collectCoverage": true,
+    "collectCoverageFrom": [
+      "**/*.{js,vue}",
+      "!**/node_modules/**"
+    ]
+  }
+}
+这样就会开启默认格式的测试覆盖率报告。你可以通过 coverageReporters 选项来定制它们。
+
+{
+  "jest": {
+    // ...
+    "coverageReporters": ["html", "text-summary"]
+  }
+}
+更多文档内容请移步至 Jest 配置文档，在那里你可以找到覆盖率阀值、目标输出目录等选项。
+
+# 测试规范示例
+如果你已经熟悉了 Jasmine，你应该很适应 Jest 的断言 API：
+
+import { mount } from '@vue/test-utils'
+import Component from './component'
+
+describe('Component', () => {
+  test('是一个 Vue 实例', () => {
+    const wrapper = mount(Component)
+    expect(wrapper.isVueInstance()).toBeTruthy()
+  })
+})
+# 相关资料
+该设置的示例工程
+Vue Conf 2017 中的示例和幻灯片
+Jest
+Babel preset env
+# 用 Mocha 和 webpack 测试单文件组件
+我们在 GitHub（https://github.com/vuejs/vue-test-utils-mocha-webpack-example） 上放有一个关于这些设置的示例工程。
+
+另一个测试单文件组件的策略是通过 webpack 编译所有的测试文件然后在测试运行器中运行。这样做的好处是可以完全支持所有 webpack 和 vue-loader 的功能，所以我们不必对我们的源代码做任何妥协。
+
+从技术的角度讲，你可以使用任何喜欢的测试运行器并把所有的东西都手动串联起来，但是我们已经找到了 mocha-webpack 能够为这项特殊任务提供非常流畅的体验。
+
+# 设置 mocha-webpack
+我们假定你在一开始已经安装并配置好了 webpack、vue-loader 和 Babel——例如通过 vue-cli 创建了 webpack-simple 模板脚手架。
+
+首先要做的是安装测试依赖：
+
+npm install --save-dev @vue/test-utils mocha mocha-webpack
+接下来我们需要在 package.json 中定义一个测试脚本。
+
+// package.json
+{
+  "scripts": {
+    "test": "mocha-webpack --webpack-config webpack.config.js --require test/setup.js test/**/*.spec.js"
+  }
+}
+这里有一些注意事项：
+
+--webpack-config 标识指定了该测试使用的 webpack 配置文件。在大多数情况下该配置会在其实际项目的配置文件基础上做一些小的调整。我们晚些时候会再聊到这一点。
+
+--require 标识确保了文件 test/setup.js 会在任何测试之前运行，这样我们可以在该文件中设置测试所需的全局环境。
+
+最后一个参数是该测试包所涵盖的所有测试文件的聚合。
+
+# 提取 webpack 配置
+# 暴露 NPM 依赖
+在测试中我们很可能会导入一些 NPM 依赖——这里面的有些模块可能没有针对浏览器的场景编写，也不适合被 webpack 打包。另一个考虑是为了尽可能的将依赖外置以提升测试的启动速度。我们可以通过 webpack-node-externals 外置所有的 NPM 依赖：
+
+// webpack.config.js
+const nodeExternals = require('webpack-node-externals')
+
+module.exports = {
+  // ...
+  externals: [nodeExternals()]
+}
+# 源码表
+源码表在 mocha-webpack 中需要通过内联的方式获取。推荐配置为：
+
+module.exports = {
+  // ...
+  devtool: 'inline-cheap-module-source-map'
+}
+如果是在 IDE 中调试，我们推荐添加以下配置：
+
+module.exports = {
+  // ...
+  output: {
+    // ...
+    // 在源码表中使用绝对路径 (对于在 IDE 中调试时很重要)
+    devtoolModuleFilenameTemplate: '[absolute-resource-path]',
+    devtoolFallbackModuleFilenameTemplate: '[absolute-resource-path]?[hash]'
+  }
+}
+# 设置浏览器环境
+Vue Test Utils 需要在浏览器环境中运行。我们可以在 Node 中使用 jsdom-global 进行模拟：
+
+npm install --save-dev jsdom jsdom-global
+然后在 test/setup.js 中写入：
+
+require('jsdom-global')()
+这行代码会在 Node 中添加一个浏览器环境，这样 Vue Test Utils 就可以正确运行了。
+
+# 选用一个断言库
+Chai 是一个流行的断言库，经常和 Mocha 配合使用。你可能也想把 Sinon 用于创建间谍和存根。
+
+另外你也可以使用 expect，它现在是 Jest 的一部分，且在 Jest 文档里暴露了完全相同的 API。
+
+这里我们将使用 expect 且令其全局可用，这样我们就不需要在每个测试文件里导入它了：
+
+npm install --save-dev expect
+然后在 test/setup.js 中编写：
+
+require('jsdom-global')()
+
+global.expect = require('expect')
+# 为测试优化 Babel
+注意我们使用了 babel-loader 来处理 JavaScript。如果你在你的应用中通过 .babelrc 文件使用了 Babel，那么你就已经算是把它配置好了。这里 babel-loader 将会自动使用相同的配置文件。
+
+有一件事值得注意，如果你使用了 Node 6+，它已经支持了主要的 ES2015 特性，那么你可以配置一个独立的 Babel 环境选项，只转译该 Node 版本中不支持的特性 (比如 stage-2 或 flow 语法支持等)。
+
+# 添加一个测试
+在 src 目录中创建一个名为 Counter.vue 的文件：
+
+<template>
+	<div>
+	  {{ count }}
+	  <button @click="increment">自增</button>
+	</div>
+</template>
+
+<script>
+export default {
+  data () {
+    return {
+      count: 0
+    }
+  },
+
+  methods: {
+    increment () {
+      this.count++
+    }
+  }
+}
+</script>
+然后创建一个名为 test/Counter.spec.js 的测试文件并写入如下代码：
+
+import { shallowMount } from '@vue/test-utils'
+import Counter from '../src/Counter.vue'
+
+describe('Counter.vue', () => {
+  it('计数器在点击按钮时自增', () => {
+    const wrapper = shallowMount(Counter)
+    wrapper.find('button').trigger('click')
+    expect(wrapper.find('div').text()).toMatch('1')
+  })
+})
+现在我们运行测试：
+
+npm run test
+喔，我们的测试运行起来了！
+
+# 测试覆盖率
+如果想设置 mocha-webpack 的测试覆盖率，请参照 mocha-webpack 测试覆盖率指南。
+
+# 相关资料
+该设置的示例工程
+Mocha
+mocha-webpack
+Chai
+Sinon
+jest/expect
+# 用 Karma 测试单文件组件
+我们在 GitHub 上放有一个该设置的示例工程。
+
+Karma 是一个启动浏览器运行测试并生成报告的测试运行器。我们会使用 Mocha 框架撰写测试，同时使用 chai 作为断言库。
+
+# 设置 Mocha
+我们会假设你一开始已经正确配置好了 webpack、vue-loader 和 Babel——例如通过 vue-cli 的 webpack-simple 模板搭建起来。
+
+第一件要做的事是安装测试依赖：
+
+npm install --save-dev @vue/test-utils karma karma-chrome-launcher karma-mocha karma-sourcemap-loader karma-spec-reporter karma-webpack mocha
+接下来我们需要在 package.json 定义一个测试脚本。
+
+// package.json
+{
+  "scripts": {
+    "test": "karma start --single-run"
+  }
+}
+--single-run 标识告诉了 Karma 一次性运行该测试套件。
+# Karma 配置
+在项目的主目录创建一个 karma.conf.js 文件：
+
+// karma.conf.js
+
+var webpackConfig = require('./webpack.config.js')
+
+module.exports = function (config) {
+  config.set({
+    frameworks: ['mocha'],
+
+    files: [
+      'test/**/*.spec.js'
+    ],
+
+    preprocessors: {
+      '**/*.spec.js': ['webpack', 'sourcemap']
+    },
+
+    webpack: webpackConfig,
+
+    reporters: ['spec'],
+
+    browsers: ['Chrome']
+  })
+}
+这个文件用来配置 Karma。
+
+我们需要用 webpack 预处理文件。为此，我们将 webpack 添加为预处理器，并引入我们的 webpack 配置。我们可以在项目基础中使用该 webpack 配置文件而无需任何修改。
+
+在我们的配置中，我们在 Chrome 中运行测试。如果想添加其它浏览器，可查阅Karma 文档的浏览器章节。
+
+# 选用一个断言库
+Chai 是一个流行的常配合 Mocha 使用的断言库。你也可以选用 Sinon 来创建监视和存根。
+
+我们可以安装 karma-chai 插件以在我们的测试中使用 chai。
+
+npm install --save-dev karma-chai
+# 添加一个测试
+在 src 中创建一个名为 Counter.vue 的文件：
+
+<template>
+  <div>
+    {{ count }}
+    <button @click="increment">Increment</button>
+  </div>
+</template>
+
+<script>
+export default {
+  data () {
+    return {
+      count: 0
+    }
+  },
+
+  methods: {
+    increment () {
+      this.count++
+    }
+  }
+}
+</script>
+然后添加一个名为 test/Coutner.spec.js 的测试文件，并写入如下代码：
+
+import { expect } from 'chai'
+import { shallowMount } from '@vue/test-utils'
+import Counter from '../src/Counter.vue'
+
+describe('Counter.vue', () => {
+  it('increments count when button is clicked', () => {
+    const wrapper = shallowMount(Counter)
+    wrapper.find('button').trigger('click')
+    expect(wrapper.find('div').text()).contains('1')
+  })
+})
+接下来我们可以运行测试：
+
+npm run test
+Woohoo，我们的测试跑起来了！
+
+# 覆盖率
+我们可以使用 karma-coverage 插件来设置 Karma 的代码覆盖率。
+
+默认情况下，karma-coverage 不会使用 source map 来对照覆盖率报告。所以我们需要使用 babel-plugin-istanbul 来确认正确匹配的覆盖率。
+
+安装 karma-coverage、babel-plugin-istanbul 和 cross-env：
+
+npm install --save-dev karma-coverage cross-env
+我们会使用 cross-env 来设置一个 BABEL_ENV 环境变量。这样我们就可以在编译测试的时候使用 babel-plugin-istanbul——因为我们不想在生产环境下引入 babel-plugin-istnabul：
+
+npm install --save-dev babel-plugin-istanbul
+更新你的 .babelrc 文件，在因测试设置了 BABEL_ENV 时使用 babel-plugin-istanbul：
+
+{
+  "presets": [
+    ["env", { "modules": false }],
+    "stage-3"
+  ],
+  "env": {
+    "test": {
+      "plugins": ["istanbul"]
+    }
+  }
+}
+现在更新 karma.conf.js 文件来进行覆盖率测试。添加 coverage 到 reporters 数组，并添加一个 coverageReporter 字段：
+
+// karma.conf.js
+
+module.exports = function (config) {
+  config.set({
+  // ...
+
+    reporters: ['spec', 'coverage'],
+
+    coverageReporter: {
+      dir: './coverage',
+      reporters: [
+        { type: 'lcov', subdir: '.' },
+        { type: 'text-summary' }
+      ]
+    }
+  })
+}
+然后更新 test 脚本来设置 BABEL_ENV：
+
+// package.json
+{
+  "scripts": {
+    "test": "cross-env BABEL_ENV=test karma start --single-run"
+  }
+}
+# 相关资料
+该设置的示例工程
+Karma
+Mocha
+Chai
+Sinon
+# 测试异步行为
+为了让测试变得简单，@vue/test-utils _同步_应用 DOM 更新。不过当测试一个带有回调或 Promise 等异步行为的组件时，你需要留意一些技巧。
+
+API 调用和 Vuex action 都是最常见的异步行为之一。下列例子展示了如何测试一个会调用到 API 的方法。这个例子使用 Jest 运行测试用例同时模拟了 HTTP 库 axios。更多关于 Jest 的手动模拟的介绍可移步这里。
+
+axios 的模拟实现大概是这个样子的：
+
+export default {
+  get: () => new Promise(resolve => {
+    resolve({ data: 'value' })
+  })
+}
+下面的组件在按钮被点击的时候会调用一个 API，然后将响应的值赋给 value。
+
+<template>
+  <button @click="fetchResults" />
+</template>
+
+<script>
+  import axios from 'axios'
+
+  export default {
+    data () {
+      return {
+        value: null
+      }
+    },
+
+    methods: {
+      async fetchResults () {
+        const response = await axios.get('mock/service')
+        this.value = response.data
+      }
+    }
+  }
+</script>
+测试用例可以写成像这样：
+
+import { shallowMount } from '@vue/test-utils'
+import Foo from './Foo'
+jest.mock('axios')
+
+test('Foo', () => {
+  it('fetches async when a button is clicked', () => {
+    const wrapper = shallowMount(Foo)
+    wrapper.find('button').trigger('click')
+    expect(wrapper.vm.value).toBe('value')
+  })
+})
+现在这则测试用例会失败，因为断言在 fetchResults 中的 Promise 完成之前就被调用了。大多数单元测试库都提供一个回调来使得运行期知道测试用例的完成时机。Jest 和 Mocha 都是用了 done。我们可以和 $nectTick 或 setTimeout 结合使用 done 来确保任何 Promise 都会在断言之前完成。
+
+test('Foo', () => {
+  it('fetches async when a button is clicked', (done) => {
+    const wrapper = shallowMount(Foo)
+    wrapper.find('button').trigger('click')
+    wrapper.vm.$nextTick(() => {
+      expect(wrapper.vm.value).toBe('value')
+      done()
+    })
+  })
+})
+$nextTick 或 setTimeout 允许测试通过的原因是 Promise 回调的 microtask 队列会在处理 $nextTick 和 setTimeout 的任务队列之前先被处理。也就是说在 $nextTick 和 setTimeout 运行的时候，任何 microtask 队列上的 Promise 回调都已经执行过了。更多的解释请移步这里。
+
+另一个解决方案时使用一个 async 函数配合 npm 包 flush-promises。flush-promises 会清除所有等待完成的 Promise 具柄。你可以 await 该 flushPromiese 调用，以此清除等待中的 Promise 并改进你的测试用例的可读性。
+
+The updated test looks like this:
+
+import { shallowMount } from '@vue/test-utils'
+import flushPromises from 'flush-promises'
+import Foo from './Foo'
+jest.mock('axios')
+
+test('Foo', () => {
+  it('fetches async when a button is clicked', async () => {
+    const wrapper = shallowMount(Foo)
+    wrapper.find('button').trigger('click')
+    await flushPromises()
+    expect(wrapper.vm.value).toBe('value')
+  })
+})
+相同的技巧可以被运用在同样默认返回一个 Promise 的 Vuex action 中。
+
+# 配合 Vue Router 使用
+# 在测试中安装 Vue Router
+在测试中，你应该杜绝在基本的 Vue 构造函数中安装 Vue Router。安装 Vue Router 之后 Vue 的原型上会增加 $route 和 $router 这两个只读属性。
+
+为了避免这样的事情发生，我们创建了一个 localVue 并对其安装 Vue Router。
+
+import { shallowMount, createLocalVue } from '@vue/test-utils'
+import VueRouter from 'vue-router'
+
+const localVue = createLocalVue()
+localVue.use(VueRouter)
+const router = new VueRouter()
+
+shallowMount(Component, {
+  localVue,
+  router
+})
+**注意：**在一个 localVue 上安装 Vue Router 时也会将 $route 和 $router 作为两个只读属性添加给该 localVue。这意味着如果你使用安装了 Vue Router 的 localVue，则不能在挂在一个组件时使用 mocks 选项来覆写 $route 和 $router。
+
+# 测试使用了 router-link 或 router-view 的组件
+当你安装 Vue Router 的时候，router-link 和 router-view 组件就被注册了。这意味着我们无需再导入可以在应用的任意地方使用它们。
+
+当我们运行测试的时候，需要令 Vue Router 相关组件在我们挂载的组件中可用。有以下两种做法：
+
+# 使用存根
+import { shallowMount } from '@vue/test-utils'
+
+shallowMount(Component, {
+  stubs: ['router-link', 'router-view']
+})
+# 为 localVue 安装 Vue Router
+import { shallowMount, createLocalVue } from '@vue/test-utils'
+import VueRouter from 'vue-router'
+
+const localVue = createLocalVue()
+localVue.use(VueRouter)
+
+shallowMount(Component, {
+  localVue
+})
+# 伪造 $route 和 $router
+有的时候你想要测试一个组件在配合 $route 和 $router 对象的参数时的行为。这时候你可以传递自定义假数据给 Vue 实例。
+
+import { shallowMount } from '@vue/test-utils'
+
+const $route = {
+  path: '/some/path'
+}
+
+const wrapper = shallowMount(Component, {
+  mocks: {
+    $route
+  }
+})
+
+wrapper.vm.$router.path // /some/path
+# 常识
+安装 Vue Router 会在 Vue 的原型上添加 $route 和 $router 只读属性。
+
+这意味着在未来的任何测试中，伪造 $route 或 $router 都会失效。
+
+要想回避这个问题，就不要在运行测试的时候全局安装 Vue Router，而用上述的 localVue 用法。
+
+# 配合 Vuex 使用
+在本教程中，我们将会看到如何用 Vue Test Utils 测试组件中的 Vuex，以及如何测试一个 Vuex store。
+
+# 在组件中测试 Vuex
+# 伪造 Action
+我们来看一些代码。
+
+这是我们想要测试的组件。它会调用 Vuex action。
+
+<template>
+  <div class="text-align-center">
+    <input type="text" @input="actionInputIfTrue" />
+    <button @click="actionClick()">Click</button>
+  </div>
+</template>
+
+<script>
+import { mapActions } from 'vuex'
+
+export default{
+  methods: {
+    ...mapActions([
+      'actionClick'
+    ]),
+    actionInputIfTrue: function actionInputIfTrue (event) {
+      const inputValue = event.target.value
+      if (inputValue === 'input') {
+        this.$store.dispatch('actionInput', { inputValue })
+      }
+    }
+  }
+}
+</script>
+站在测试的角度，我们不关心这个 action 做了什么或者这个 store 是什么样子的。我们只需要知道这些 action 将会在适当的时机触发，以及它们触发时的预期值。
+
+为了完成这个测试，我们需要在浅渲染组件时给 Vue 传递一个伪造的 store。
+
+我们可以把 store 传递给一个 localVue，而不是传递给基础的 Vue 构造函数。localVue 是一个独立作用域的 Vue 构造函数，我们可以对其进行改动而不会影响到全局的 Vue 构造函数。
+
+我们来看看它的样子：
+
+import { shallowMount, createLocalVue } from '@vue/test-utils'
+import Vuex from 'vuex'
+import Actions from '../../../src/components/Actions'
+
+const localVue = createLocalVue()
+
+localVue.use(Vuex)
+
+describe('Actions.vue', () => {
+  let actions
+  let store
+
+  beforeEach(() => {
+    actions = {
+      actionClick: jest.fn(),
+      actionInput: jest.fn()
+    }
+    store = new Vuex.Store({
+      state: {},
+      actions
+    })
+  })
+
+  it('当输入框的值是“input”且一个“input”事件被触发时会调用“actionInput”的 action', () => {
+    const wrapper = shallowMount(Actions, { store, localVue })
+    const input = wrapper.find('input')
+    input.element.value = 'input'
+    input.trigger('input')
+    expect(actions.actionInput).toHaveBeenCalled()
+  })
+
+  it('当输入框的值不是“input”但有“input”事件触发时不会掉用“actionInput”的 action', () => {
+    const wrapper = shallowMount(Actions, { store, localVue })
+    const input = wrapper.find('input')
+    input.element.value = 'not input'
+    input.trigger('input')
+    expect(actions.actionInput).not.toHaveBeenCalled()
+  })
+
+  it('当按钮被点击时候调用“actionClick”的 action', () => {
+    const wrapper = shallowMount(Actions, { store, localVue })
+    wrapper.find('button').trigger('click')
+    expect(actions.actionClick).toHaveBeenCalled()
+  })
+})
+这里发生了什么？首先我们用 localVue.use 方法告诉 Vue 使用 Vuex。这只是 Vue.use 的一个包裹器。
+
+然后我们用 new Vuex.store 伪造了一个 store 并填入假数据。我们只把它传递给 action，因为我们只关心这个。
+
+该 action 是 Jest 伪造函数。这些伪造函数让我们去断言该 action 是否被调用。
+
+然后我们可以在我们的测试中断言 action 存根是否如预期般被调用。
+
+现在我们定义 store 的方式在你看来可能有点特别。
+
+我们使用 beforeEach 来确认我们在每项测试之前已经拥有一个干净的 store。beforeEach 是一个 mocha 的钩子，会在每项测试之前被调用。我们在测试中会重新为 store 的变量赋值。如果我们没有这样做，伪造函数就需要被自动重置。它还需要我们改变测试中的 state，而不会影响后面的其它测试。
+
+该测试中最重要的注意事项是：我们创建了一个伪造的 Vuex store 并将其传递给 Vue Test Utils。
+
+好的，现在我们可以伪造 action 了，我们再来看看伪造 getter。
+
+# 伪造 Getter
+<template>
+  <div>
+    <p v-if="inputValue">{{inputValue}}</p>
+    <p v-if="clicks">{{clicks}}</p>
+  </div>
+</template>
+
+<script>
+import { mapGetters } from 'vuex'
+
+export default{
+  computed: mapGetters([
+    'clicks',
+    'inputValue'
+  ])
+}
+</script>
+这是一个非常简单的组件。它根据 getter clicks 和 inputValue 渲染结果。还是那句话，我们并不关注这些 getter 返回什么——只关注它们被正确的渲染。
+
+让我们看看这个测试：
+
+import { shallowMount, createLocalVue } from '@vue/test-utils'
+import Vuex from 'vuex'
+import Getters from '../../../src/components/Getters'
+
+const localVue = createLocalVue()
+
+localVue.use(Vuex)
+
+describe('Getters.vue', () => {
+  let getters
+  let store
+
+  beforeEach(() => {
+    getters = {
+      clicks: () => 2,
+      inputValue: () => 'input'
+    }
+
+    store = new Vuex.Store({
+      getters
+    })
+  })
+
+  it('在第一个 p 标签中渲染“state.inputValue”', () => {
+    const wrapper = shallowMount(Getters, { store, localVue })
+    const p = wrapper.find('p')
+    expect(p.text()).toBe(getters.inputValue())
+  })
+
+  it('在第二个 p 标签中渲染“state.clicks”', () => {
+    const wrapper = shallowMount(Getters, { store, localVue })
+    const p = wrapper.findAll('p').at(1)
+    expect(p.text()).toBe(getters.clicks().toString())
+  })
+})
+这个测试和我们的 action 测试很相似。我们在每个测试运行之前创建了一个伪造的 store，在我们调用 shallowMount 的时候将其以一个选项传递进去，并断言我们伪造的 getter 的返回值被渲染。
+
+这非常好，但是如果我们想要检查我们的 getter 是否返回了正确的 state 的部分该怎么办呢？
+
+# 伪造 Module
+Module 对于将我们的 store 分隔成多个可管理的块来说非常有用。它们也暴露 getter。我们可以在测试中使用它们。
+
+看看这个组件：
+
+<template>
+  <div>
+    <button @click="moduleActionClick()">Click</button>
+    <p>{{moduleClicks}}</p>
+  </div>
+</template>
+
+<script>
+import { mapActions, mapGetters } from 'vuex'
+
+export default{
+  methods: {
+    ...mapActions([
+      'moduleActionClick'
+    ])
+  },
+
+  computed: mapGetters([
+    'moduleClicks'
+  ])
+}
+</script>
+简单的包含一个 action 和一个 getter 的组件。
+
+其测试：
+
+import { shallowMount, createLocalVue } from '@vue/test-utils'
+import Vuex from 'vuex'
+import MyComponent from '../../../src/components/MyComponent'
+import myModule from '../../../src/store/myModule'
+
+const localVue = createLocalVue()
+
+localVue.use(Vuex)
+
+describe('MyComponent.vue', () => {
+  let actions
+  let state
+  let store
+
+  beforeEach(() => {
+    state = {
+      clicks: 2
+    }
+
+    actions = {
+      moduleActionClick: jest.fn()
+    }
+
+    store = new Vuex.Store({
+      modules: {
+        myModule: {
+          state,
+          actions,
+          getters: myModule.getters
+        }
+      }
+    })
+  })
+
+  it('在点击按钮时调用 action“moduleActionClick”', () => {
+    const wrapper = shallowMount(MyComponent, { store, localVue })
+    const button = wrapper.find('button')
+    button.trigger('click')
+    expect(actions.moduleActionClick).toHaveBeenCalled()
+  })
+
+  it('在第一个 p 标签内渲染“state.inputValue”', () => {
+    const wrapper = shallowMount(MyComponent, { store, localVue })
+    const p = wrapper.find('p')
+    expect(p.text()).toBe(state.clicks.toString())
+  })
+})
+# 测试一个 Vuex Store
+这里有两个测试 Vuex store 的方式。第一个方式是分别单元化测试 getter、mutation 和 action。第二个方式是创建一个 store 并针对其进行测试。我们接下来看看这两种方式如何。
+
+为了弄清楚如果测试一个 Vuex store，我们会创建一个简单的计数器 store。该 store 会有一个 increment mutation 和一个 evenOrOdd getter。
+
+// mutations.js
+export default {
+  increment (state) {
+    state.count++
+  }
+}
+
+// getters.js
+export default {
+  evenOrOdd: state => state.count % 2 === 0 ? 'even' : 'odd'
+}
+# 分别测试 getter、mutation 和 action
+Getter、mutation 和 action 全部是 JavaScript 函数，所以我们可以不通过 Vue Test Utils 和 Vuex 测试它们。
+
+分别测试 getter、mutation 和 action 的好处是你的单元测试是非常详细的。当它们失败时，你完全知道你代码的问题是什么。当然另外一方面你需要伪造诸如 commit 和 dispatch 的 Vuex 函数。这会导致在一些情况下你伪造错了东西，导致单元测试通过，生产环境的代码缺失败了。
+
+我们会创建两个测试文件：mutations.spec.js 和 getters.spec.js：
+
+首先，我们测试名为 increment 的 mutation：
+
+// mutations.spec.js
+
+import mutations from './mutations'
+
+test('increment increments state.count by 1', () => {
+  const state = {
+    count: 0
+  }
+  mutations.increment(state)
+  expect(state.count).toBe(1)
+})
+现在让我们测试 evenOrOdd getter。我们可以通过创建一个伪造的 state 来测试它，带上 state 调用这个 getter 并检查它是否返回正确的结果。
+
+// getters.spec.js
+
+import getters from './getters'
+
+test('evenOrOdd returns even if state.count is even', () => {
+  const state = {
+    count: 2
+  }
+  expect(getters.evenOrOdd(state)).toBe('even')
+})
+
+test('evenOrOdd returns odd if state.count is odd', () => {
+  const state = {
+    count: 1
+  }
+  expect(getters.evenOrOdd(state)).toBe('odd')
+})
+
+# 测试一个运行中的 store
+另一个测试 Vuex store 的方式就是使用 store 配置创建一个运行中的 store。
+
+这样做的好处是我们不需要伪造任何 Vuex 函数。
+
+另一方面当一个测试失败时，排查问题的难度会增加。
+
+我们来写一个测试吧。当我们创建一个 store 时，我们会使用 localVue 来避免污染 Vue 的基础构造函数。该测试会使用 store-config.js 导出的配置创建一个 store：
+
+// store-config.spec.js
+import mutations from './mutations'
+import getters from './getters'
+
+export default {
+  state: {
+    count: 0
+  },
+  mutations,
+  getters
+}
+import { createLocalVue } from '@vue/test-utils'
+import Vuex from 'vuex'
+import storeConfig from './store-config'
+import { cloneDeep } from 'lodash'
+
+test('increments count value when increment is commited', () => {
+  const localVue = createLocalVue()
+  localVue.use(Vuex)
+  const store = new Vuex.Store(cloneDeep(storeConfig))
+  expect(store.state.count).toBe(0)
+  store.commit('increment')
+  expect(store.state.count).toBe(1)
+})
+
+test('updates evenOrOdd getter when increment is commited', () => {
+  const localVue = createLocalVue()
+  localVue.use(Vuex)
+  const store = new Vuex.Store(cloneDeep(storeConfig))
+  expect(store.getters.evenOrOdd).toBe('even')
+  store.commit('increment')
+  expect(store.getters.evenOrOdd).toBe('odd')
+})
+注意我们在创建一个 store 之前使用了 cloneDeep 来克隆 store 配置。这是因为 Vuex 会改变用来创建 store 的选项对象。为了确保我们能为每一个测试都提供一个干净的 store，我们需要克隆 storeConfig 对象。

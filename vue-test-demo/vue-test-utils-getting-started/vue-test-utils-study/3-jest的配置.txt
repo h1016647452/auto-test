@@ -1,0 +1,784 @@
+参考官网：https://jestjs.io/docs/en/configuration.html
+配置Jest
+Jest的配置可以在package.json项目文件中定义，也可以通过jest.config.js文件或--config <path/to/js|json>选项定义。如果您想使用package.json存储Jest的配置，应该在顶层使用“jest”键，以便Jest知道如何找到您的设置：
+
+{
+  "name": "my-project",
+  "jest": {
+    "verbose": true
+  }
+}
+或者通过JavaScript：
+
+// jest.config.js
+module.exports = {
+  verbose: true,
+};
+请记住，生成的配置必须是JSON可序列化的。
+
+使用该--config选项时，JSON文件不得包含“jest”键：
+
+{
+  "bail": true,
+  "verbose": true
+}
+选项
+这些选项可让您控制Jest在package.json文件中的行为。Jest的理念是默认工作得很好，但有时你需要更多的配置能力。
+
+默认
+您可以检索Jest的默认选项以在需要时展开它们：
+
+// jest.config.js
+const {defaults} = require('jest-config');
+module.exports = {
+  // ...
+  moduleFileExtensions: [...defaults.moduleFileExtensions, 'ts', 'tsx'],
+  // ...
+};
+automock [布尔]
+browser [布尔]
+bail [布尔]
+cacheDirectory [串]
+clearMocks [布尔]
+collectCoverage [布尔]
+collectCoverageFrom [阵列]
+coverageDirectory [串]
+coveragePathIgnorePatterns [阵列]
+coverageReporters [阵列]
+coverageThreshold [目的]
+forceCoverageMatch [阵列]
+globals [目的]
+globalSetup [串]
+globalTeardown [串]
+moduleFileExtensions [阵列]
+moduleDirectories [阵列]
+moduleNameMapper [目的]
+modulePathIgnorePatterns [阵列]
+modulePaths [阵列]
+notify [布尔]
+notifyMode [串]
+preset [串]
+projects [阵列]
+reporters [阵列]
+resetMocks [布尔]
+resetModules [布尔]
+resolver [串]
+restoreMocks [布尔]
+rootDir [串]
+roots [阵列]
+runner [串]
+setupFiles [阵列]
+setupTestFrameworkScriptFile [串]
+snapshotSerializers [阵列]
+testEnvironment [串]
+testEnvironmentOptions [目的]
+testMatch [阵列]
+testPathIgnorePatterns [阵列]
+testRegex [串]
+testResultsProcessor [串]
+testRunner [串]
+testURL [串]
+timers [串]
+transform [目的]
+transformIgnorePatterns [阵列]
+unmockedModulePathPatterns [阵列]
+verbose [布尔]
+watchPathIgnorePatterns [阵列]
+参考
+automock [布尔]
+默认： false
+
+此选项告诉Jest应该自动模拟测试中的所有导入模块。测试中使用的所有模块都将具有替换实现，从而保持API表面。
+
+例：
+
+// utils.js
+export default {
+  authorize: () => {
+    return 'token';
+  },
+  isAuthorized: secret => secret === 'wizard',
+};
+//__tests__/automocking.test.js
+import utils from '../utils';
+
+test('if utils mocked automatically', () => {
+  // Public methods of `utils` are now mock functions
+  expect(utils.authorize.mock).toBeTruthy();
+  expect(utils.isAuthorized.mock).toBeTruthy();
+
+  // You can provide them with your own implementation
+  // or just pass the expected return value
+  utils.authorize.mockReturnValue('mocked_token');
+  utils.isAuthorized.mockReturnValue(true);
+
+  expect(utils.authorize()).toBe('mocked_token');
+  expect(utils.isAuthorized('not_wizard')).toBeTruthy();
+});
+注意：fs默认情况下，核心模块不会被模拟。他们可以明确地嘲笑，比如jest.mock('fs')。
+
+注意：自动锁定在大型项目中的性能成本最为明显。请参阅此处了解详细信息和解决方法。
+
+browser [布尔]
+默认： false
+
+在解析模块时尊重Browserify的"browser"字段package.json。某些模块根据它们是在节点还是在浏览器中运行来导出不同的版本。
+
+bail [布尔]
+默认： false
+
+默认情况下，Jest运行所有测试并在完成后将所有错误生成到控制台中。这里可以使用bail配置选项让Jest在第一次失败后停止运行测试。
+
+cacheDirectory [串]
+默认： "/tmp/<path>"
+
+Jest应存储其缓存的依赖项信息的目录。
+
+Jest尝试扫描您的依赖关系树一次（预先）并缓存它，以便缓解运行测试时需要发生的一些文件系统耙。此配置选项允许您自定义Jest在磁盘上缓存数据的位置。
+
+clearMocks [布尔]
+默认： false
+
+在每次测试之间自动清除模拟调用和实例。相当于jest.clearAllMocks()每次测试之间的调用。这不会删除可能已提供的任何模拟实现。
+
+collectCoverage [布尔]
+默认： false
+
+指示在执行测试时是否应收集覆盖率信息。因为这会使用coverage集合语句对所有执行的文件进行改造，所以它可能会显着减慢您的测试速度。
+
+collectCoverageFrom [阵列]
+默认： undefined
+
+一组glob模式，指示应该为其收集coverage信息的一组文件。如果文件与指定的glob模式匹配，即使此文件不存在测试，也将为其收集覆盖率信息，并且测试套件中从不需要它。
+
+例：
+
+{
+  "collectCoverageFrom": [
+    "**/*.{js,jsx}",
+    "!**/node_modules/**",
+    "!**/vendor/**"
+  ]
+}
+这将收集的内部项目的所有文件覆盖的信息rootDir，除了匹配的那些**/node_modules/**或**/vendor/**。
+
+注意：此选项需要collectCoverage设置为true或要调用Jest --coverage。
+
+coverageDirectory [串]
+默认： undefined
+
+Jest应输出其coverage文件的目录。
+
+coveragePathIgnorePatterns [阵列]
+默认： ["/node_modules/"]
+
+在执行测试之前与所有文件路径匹配的正则表达式模式字符串数组。如果文件路径与任何模式匹配，则将跳过覆盖信息。
+
+这些模式字符串与完整路径匹配。使用<rootDir>字符串标记包含项目根目录的路径，以防止它意外忽略可能具有不同根目录的不同环境中的所有文件。示例：["<rootDir>/build/", "<rootDir>/node_modules/"]。
+
+coverageReporters [阵列]
+默认： ["json", "lcov", "text"]
+
+Jest在编写覆盖率报告时使用的记者名称列表。可以使用任何伊斯坦布尔记者。
+
+注意：设置此选项会覆盖默认值。在控制台输出中添加"text"或"text-summary"查看coverage摘要。
+
+coverageThreshold [目的]
+默认： undefined
+
+这将用于配置覆盖结果的最低阈值强制执行。阈值可被指定为global，作为一个水珠，并作为一个目录或文件路径。如果未达到阈值，则jest将失败。指定为正数的阈值被视为所需的最小百分比。指定为负数的阈值表示允许的最大未覆盖实体数。
+
+例如，使用以下配置，如果分支，行和函数覆盖率低于80％，或者有超过10个未覆盖的语句，则jest将失败：
+
+{
+  ...
+  "jest": {
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80,
+        "statements": -10
+      }
+    }
+  }
+}
+如果同时指定了球或路径global，则将从总体覆盖中减去匹配路径的覆盖数据，并且将独立应用阈值。globs的阈值应用于与glob匹配的所有文件。如果找不到path指定的文件，则返回错误。
+
+例如，使用以下配置：
+
+{
+  ...
+  "jest": {
+    "coverageThreshold": {
+      "global": {
+        "branches": 50,
+        "functions": 50,
+        "lines": 50,
+        "statements": 50
+      },
+      "./src/components/": {
+        "branches": 40,
+        "statements": 40
+      },
+      "./src/reducers/**/*.js": {
+        "statements": 90,
+      },
+      "./src/api/very-important-module.js": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      }
+    }
+  }
+}
+如果：Jest将失败：
+
+该./src/components目录的分支或语句覆盖率低于40％。
+与./src/reducers/**/*.jsglob 匹配的文件之一的语句覆盖率低于90％。
+该./src/api/very-important-module.js文件的覆盖率低于100％。
+每个剩余的文件组合覆盖率低于50％（global）。
+forceCoverageMatch [阵列]
+默认： ['']
+
+通常会在收集代码覆盖率时忽略测试文件。使用此选项，您可以覆盖此行为，并在代码覆盖率中包含其他被忽略的文件。
+
+例如，如果您使用.t.js扩展名命名的源文件中的测试如下：
+
+// sum.t.js
+
+export function sum(a, b) {
+  return a + b;
+}
+
+if (process.env.NODE_ENV === 'test') {
+  test('sum', () => {
+    expect(sum(1, 2)).toBe(3);
+  });
+}
+您可以通过设置收集这些文件的覆盖范围forceCoverageMatch。
+
+{
+  ...
+  "jest": {
+    "forceCoverageMatch": ["**/*.t.js"]
+  }
+}
+globals [目的]
+默认： {}
+
+需要在所有测试环境中可用的一组全局变量。
+
+例如，以下内容将创建在所有测试环境中__DEV__设置的全局变量true：
+
+{
+  ...
+  "jest": {
+    "globals": {
+      "__DEV__": true
+    }
+  }
+}
+请注意，如果您在此处指定全局引用值（如对象或数组），并且某些代码在运行测试期间突变该值，则该突变将不会在其他测试文件的测试运行期间保持不变。此外，globals对象必须是json可序列化的，因此不能用于指定全局函数。为此你应该使用setupFiles。
+
+globalSetup [串]
+默认： undefined
+
+此选项允许使用自定义全局设置模块，该模块导出在所有测试套件之前触发一次的异步功能。
+
+globalTeardown [串]
+默认： undefined
+
+此选项允许使用自定义全局拆卸模块，该模块导出在所有测试套件之后触发一次的异步功能。
+
+moduleFileExtensions [阵列]
+默认： ["js", "json", "jsx", "node"]
+
+模块使用的文件扩展名数组。如果您需要模块而不指定文件扩展名，则这些是Jest将寻找的扩展。
+
+如果您使用的是TypeScript ["js", "jsx", "json", "ts", "tsx"]，请查看ts-jest的文档。
+
+moduleDirectories [阵列]
+默认： ["node_modules"]
+
+要从需求模块的位置递归搜索的目录名称数组。设置此选项将覆盖默认值，如果您仍希望搜索node_modules包，请将其与任何其他选项一起包含：["node_modules", "bower_components"]
+
+moduleNameMapper [object <string，string>]
+默认： null
+
+从正则表达式到模块名称的映射，允许存根资源，例如具有单个模块的图像或样式。
+
+无论是否启用自动锁定，默认情况下都会取消映射到别名的模块。
+
+如果要使用文件路径<rootDir>，请使用字符串标记来引用rootDir值。
+
+此外，您可以使用编号的反向引用替换捕获的正则表达式组。
+
+例：
+
+{
+  "moduleNameMapper": {
+    "^image![a-zA-Z0-9$_-]+$": "GlobalImageStub",
+    "^[./a-zA-Z0-9$_-]+\\.png$": "<rootDir>/RelativeImageStub.js",
+    "module_name_(.*)": "<rootDir>/substituted_module_$1.js"
+  }
+}
+映射的定义顺序很重要。逐个检查图案直到一个适合。应首先列出最具体的规则。
+
+注意：如果您提供没有边界的模块名称，^$则可能导致难以发现错误。例如，relay将替换relay名称中包含子字符串的所有模块：relay，react-relay并且graphql-relay都将指向您的存根。
+
+modulePathIgnorePatterns [阵列]
+默认： []
+
+在这些路径被认为对模块加载器“可见”之前，与所有模块路径匹配的正则表达式模式字符串数组。如果给定模块的路径与任何模式匹配，则require()在测试环境中不可用。
+
+这些模式字符串与完整路径匹配。使用<rootDir>字符串标记包含项目根目录的路径，以防止它意外忽略可能具有不同根目录的不同环境中的所有文件。示例：["<rootDir>/build/"]。
+
+modulePaths [阵列]
+默认： []
+
+设置NODE_PATHenv变量的另一种API modulePaths是在解析模块时要搜索的其他位置的绝对路径数组。使用<rootDir>字符串标记包含项目根目录的路径。示例：["<rootDir>/app/"]。
+
+notify [布尔]
+默认： false
+
+激活测试结果的通知。
+
+notifyMode [串]
+默认： always
+
+指定通知模式。需要notify: true。
+
+模式
+always：始终发送通知。
+failure：测试失败时发送通知。
+success：测试通过时发送通知。
+change: send a notification when the status changed.
+success-change: send a notification when tests pass or once when it fails.
+failure-success: send a notification when tests fails or once when it passes.
+preset [string]
+Default: undefined
+
+A preset that is used as a base for Jest's configuration. A preset should point to an npm module that exports a jest-preset.json or jest-preset.js module at its top level.
+
+Presets may also be relative filesystem paths.
+
+{
+  "preset": "./node_modules/foo-bar/jest-preset.js"
+}
+projects [array<string | ProjectConfig>]
+Default: undefined
+
+When the projects configuration is provided with an array of paths or glob patterns, Jest will run tests in all of the specified projects at the same time. This is great for monorepos or when working on multiple projects at the same time.
+
+{
+  "projects": ["<rootDir>", "<rootDir>/examples/*"]
+}
+此示例配置将在根目录以及示例目录中的每个文件夹中运行Jest。您可以在同一个Jest实例中运行无限数量的项目。
+
+该项目的功能也可以用于运行多种配置或多亚军。为此，您可以传递一组配置对象。例如，要在Jest的同一个调用中运行两个测试和ESLint（通过jest-runner-eslint）：
+
+{
+  "projects": [
+    {
+      "displayName": "test"
+    },
+    {
+      "displayName": "lint",
+      "runner": "jest-runner-eslint",
+      "testMatch": ["<rootDir>/**/*.js"]
+    }
+  ]
+}
+注意：使用多项目运行器时，建议displayName为每个项目添加一个。这将显示displayName其测试旁边的项目。
+
+reporters[array <moduleName | [moduleName，options]>]
+默认： undefined
+
+使用此配置选项将自定义报告器添加到Jest。定制的记者是一个实现类onRunStart，onTestStart，onTestResult，onRunComplete方法时，任何这些事件发生时，将调用。
+
+如果指定了自定义报告者，则将覆盖默认的Jest报告者。要保留默认记者，default可以作为模块名称传递。
+
+这将覆盖默认记者：
+
+{
+  "reporters": ["<rootDir>/my-custom-reporter.js"]
+}
+除了Jest提供的默认记者之外，这将使用自定义报告者：
+
+{
+  "reporters": ["default", "<rootDir>/my-custom-reporter.js"]
+}
+此外，可以通过将options对象作为第二个参数传递来配置自定义报告者：
+
+{
+  "reporters": [
+    "default",
+    ["<rootDir>/my-custom-reporter.js", {"banana": "yes", "pineapple": "no"}]
+  ]
+}
+自定义报告模块必须定义一个类，它将一个GlobalConfig和记者选项作为构造函数参数：
+
+记者：
+
+// my-custom-reporter.js
+class MyCustomReporter {
+  constructor(globalConfig, options) {
+    this._globalConfig = globalConfig;
+    this._options = options;
+  }
+
+  onRunComplete(contexts, results) {
+    console.log('Custom reporter output:');
+    console.log('GlobalConfig: ', this._globalConfig);
+    console.log('Options: ', this._options);
+  }
+}
+
+module.exports = MyCustomReporter;
+自定义报告者还可以通过从getLastError()方法返回错误来强制Jest以非0代码退出
+
+class MyCustomReporter {
+  // ...
+  getLastError() {
+    if (this._shouldFail) {
+      return new Error('my-custom-reporter.js reported an error');
+    }
+  }
+}
+有关方法和参数类型的完整列表，请参阅类型/ TestRunner.jsReporter中的类型
+
+resetMocks [布尔]
+默认： false
+
+在每次测试之间自动重置模拟状态。相当于jest.resetAllMocks()每次测试之间的调用。这将导致任何模拟删除其虚假实现但不恢复其初始实现。
+
+resetModules [布尔]
+默认： false
+
+如果启用，则在运行每个单独的测试之前，将重置每个测试文件的模块注册表。这对于隔离每个测试的模块非常有用，这样本地模块状态在测试之间不会发生冲突。这可以通过编程方式完成jest.resetModules()。
+
+resolver [串]
+默认： undefined
+
+此选项允许使用自定义解析程序。此解析程序必须是一个节点模块，它将期望字符串的函数导出为要解析的路径的第一个参数，并将具有以下结构的对象导出为第二个参数：
+
+{
+  "basedir": string,
+  "browser": bool,
+  "extensions": [string],
+  "moduleDirectory": [string],
+  "paths": [string],
+  "rootDir": [string]
+}
+该函数应该返回应该解析的模块的路径，或者如果找不到模块则抛出错误。
+
+restoreMocks [布尔]
+默认： false
+
+在每次测试之间自动恢复模拟状态。相当于jest.restoreAllMocks()每次测试之间的调用。这将导致任何模拟删除其虚假实现并恢复其初始实现。
+
+rootDir [串]
+默认值：包含你的笑话的目录的根目录配置文件 或将package.json 或将pwd如果没有package.json被发现
+
+Jest应扫描其中的测试和模块的根目录。如果您将Jest配置放在您的内部package.json并希望根目录成为您的repo的根目录，则此配置参数的值将默认为该目录package.json。
+
+通常，您需要将其设置为'src'或者'lib'对应于存储库中存储代码的位置。
+
+请注意，'<rootDir>'在任何其他基于路径的配置设置中使用字符串标记将返回此值。因此，例如，如果您希望setupFiles配置条目指向env-setup.js项目根目录下的文件，则可以将其值设置为["<rootDir>/env-setup.js"]。
+
+roots [阵列]
+默认： ["<rootDir>"]
+
+Jest用于搜索文件的目录路径列表。
+
+有时您只希望Jest在单个子目录中搜索（例如src/您的仓库中有目录的情况），但是阻止Jest 访问其余的仓库。
+
+注意：虽然rootDir主要用作在其他配置选项中重复使用的令牌roots，但Jest的内部使用它来定位测试文件和源文件。这也适用于搜索模块的手动模拟node_modules（__mocks__需要存在于其中一个模块中roots）。
+
+注意：默认情况下，roots只有一个条目，<rootDir>但有时您可能希望在一个项目中有多个根roots: ["<rootDir>/src/", "<rootDir>/tests/"]。
+
+runner [串]
+默认： "jest-runner"
+
+此选项允许您使用自定义运行器而不是Jest的默认测试运行器。跑步者的例子包括：
+
+jest-runner-eslint
+jest-runner-mocha
+jest-runner-tsc
+jest-runner-prettier
+要编写一个测试运行器，导出一个globalConfig在构造函数中接受的类，并且有一个runTests带有签名的方法：
+
+async runTests(
+  tests: Array<Test>,
+  watcher: TestWatcher,
+  onStart: OnTestStart,
+  onResult: OnTestSuccess,
+  onFailure: OnTestFailure,
+  options: TestRunnerOptions,
+): Promise<void>
+如果您需要将测试运行器限制为仅以串行方式运行而不是并行执行，则您的类应该将属性isSerial设置为true。
+
+setupFiles [阵列]
+默认： []
+
+模块的路径，在每次测试之前运行一些代码来配置或设置测试环境。由于每个测试都在自己的环境中运行，因此这些脚本将在执行测试代码本身之前立即在测试环境中执行。
+
+值得注意的是，此代码将在之前 执行setupTestFrameworkScriptFile。
+
+setupTestFrameworkScriptFile [串]
+默认： undefined
+
+模块的路径，在每次测试之前运行一些代码来配置或设置测试框架。自从setupFiles在环境中安装测试框架之前执行，此脚本文件为您提供了在环境中安装测试框架后立即运行某些代码的机会。
+
+如果您希望此路径相对于项目的根目录，请<rootDir>在路径字符串中包含，例如"<rootDir>/a-configs-folder"。
+
+例如，Jest jasmine通过猴子修补jasmine API 为这项工作提供了几个插件。如果你想在混合中添加更多的jasmine插件（或者你想要一些自定义的，项目范围的匹配器），你可以在这个模块中这样做。
+
+snapshotSerializers [阵列]
+默认： []
+
+Jest应该用于快照序列化程序模块的路径列表，用于快照测试。
+
+Jest具有内置JavaScript类型，HTML元素（Jest 20.0.0+），ImmutableJS（Jest 20.0.0+）和React元素的默认序列化程序。有关更多信息，请参阅快照测试教程
+
+示例序列化模块：
+
+// my-serializer-module
+module.exports = {
+  print(val, serialize, indent) {
+    return 'Pretty foo: ' + serialize(val.foo);
+  },
+
+  test(val) {
+    return val && val.hasOwnProperty('foo');
+  },
+};
+serialize 是一个使用现有插件序列化值的函数。
+
+要my-serializer-module用作序列化程序，配置如下：
+
+{
+  ...
+  "jest": {
+    "snapshotSerializers": ["my-serializer-module"]
+  }
+}
+最后测试如下：
+
+test(() => {
+  const bar = {
+    foo: {
+      x: 1,
+      y: 2,
+    },
+  };
+
+  expect(bar).toMatchSnapshot();
+});
+渲染快照：
+
+Pretty foo: Object {
+  "x": 1,
+  "y": 2,
+}
+要使依赖项显式而不是隐式，可以调用expect.addSnapshotSerializer为单个测试文件添加模块，而不是将其路径添加到snapshotSerializersJest配置中。
+
+testEnvironment [串]
+默认： "jsdom"
+
+将用于测试的测试环境。Jest中的默认环境是通过jsdom的类似浏览器的环境。如果要构建节点服务，则可以使用该node选项来改为使用类似节点的环境。
+
+通过@jest-environment在文件顶部添加docblock，您可以指定另一个用于该文件中所有测试的环境：
+
+/**
+ * @jest-environment jsdom
+ */
+
+test('use jsdom in this test file', () => {
+  const element = document.createElement('div');
+  expect(element).not.toBeNull();
+});
+您可以创建自己的模块，用于设置测试环境。该模块必须导出一类setup，teardown和runScript方法。您还可以将变量从此模块传递到测试套件，方法是将它们分配给this.global对象 - 这将使它们在测试套件中作为全局变量可用。
+
+注意：TestEnvironment是沙盒。每个测试套件都会在自己的TestEnvironment中触发设置/拆卸。
+
+例：
+
+// my-custom-environment
+const NodeEnvironment = require('jest-environment-node');
+
+class CustomEnvironment extends NodeEnvironment {
+  constructor(config) {
+    super(config);
+  }
+
+  async setup() {
+    await super.setup();
+    await someSetupTasks();
+    this.global.someGlobalObject = createGlobalObject();
+  }
+
+  async teardown() {
+    this.global.someGlobalObject = destroyGlobalObject();
+    await someTeardownTasks();
+    await super.teardown();
+  }
+
+  runScript(script) {
+    return super.runScript(script);
+  }
+}
+// my-test-suite
+let someGlobalObject;
+
+beforeAll(() => {
+  someGlobalObject = global.someGlobalObject;
+});
+testEnvironmentOptions [目的]
+默认： {}
+
+测试环境选项将传递给testEnvironment。相关选项取决于环境。例如，您可以覆盖给jsdom的选项，例如{userAgent: "Agent/007"}。
+
+testMatch [阵列]
+（默认值：[ "**/__tests__/**/*.js?(x)", "**/?(*.)+(spec|test).js?(x)" ]）
+
+Jest用于检测测试文件的glob模式。默认情况下，它看起来.js和.jsx里面的文件__tests__夹，以及任何与文件的后缀.test或.spec（如Component.test.js或Component.spec.js）。它还会找到名为test.js或的文件spec.js。
+
+有关您可以指定的模式的详细信息，请参阅micromatch包。
+
+另请参见testRegex[string]，但请注意，您不能同时指定这两个选项。
+
+testPathIgnorePatterns [阵列]
+默认： ["/node_modules/"]
+
+在执行测试之前与所有测试路径匹配的正则表达式模式字符串数组。如果测试路径与任何模式匹配，则将跳过该模式。
+
+这些模式字符串与完整路径匹配。使用<rootDir>字符串标记包含项目根目录的路径，以防止它意外忽略可能具有不同根目录的不同环境中的所有文件。示例：["<rootDir>/build/", "<rootDir>/node_modules/"]。
+
+testRegex [串]
+默认： (/__tests__/.*|(\\.|/)(test|spec))\\.jsx?$
+
+Jest用于检测测试文件的模式。默认情况下，它看起来.js和.jsx里面的文件__tests__夹，以及任何与文件的后缀.test或.spec（如Component.test.js或Component.spec.js）。它还会找到名为test.js或的文件spec.js。另见testMatch[数组]，但请注意，您无法指定这两个选项。
+
+以下是默认正则表达式的可视化：
+
+├── __tests__
+│   └── component.spec.js # test
+│   └── anything # test
+├── package.json # not test
+├── foo.test.js # test
+├── bar.spec.jsx # test
+└── component.js # not test
+testResultsProcessor [串]
+默认： undefined
+
+此选项允许使用自定义结果处理器。此处理器必须是一个节点模块，它导出一个期望具有以下结构的对象的函数作为第一个参数并返回它：
+
+{
+  "success": bool,
+  "startTime": epoch,
+  "numTotalTestSuites": number,
+  "numPassedTestSuites": number,
+  "numFailedTestSuites": number,
+  "numRuntimeErrorTestSuites": number,
+  "numTotalTests": number,
+  "numPassedTests": number,
+  "numFailedTests": number,
+  "numPendingTests": number,
+  "openHandles": Array<Error>,
+  "testResults": [{
+    "numFailingTests": number,
+    "numPassingTests": number,
+    "numPendingTests": number,
+    "testResults": [{
+      "title": string (message in it block),
+      "status": "failed" | "pending" | "passed",
+      "ancestorTitles": [string (message in describe blocks)],
+      "failureMessages": [string],
+      "numPassingAsserts": number,
+      "location": {
+        "column": number,
+        "line": number
+      }
+    },
+    ...
+    ],
+    "perfStats": {
+      "start": epoch,
+      "end": epoch
+    },
+    "testFilePath": absolute path to test file,
+    "coverage": {}
+  },
+  ...
+  ]
+}
+testRunner [串]
+默认： jasmine2
+
+此选项允许使用自定义测试运行器。默认值为jasmine2。可以通过指定测试运行器实现的路径来提供自定义测试运行器。
+
+测试运行器模块必须导出具有以下签名的函数：
+
+function testRunner(
+  config: Config,
+  environment: Environment,
+  runtime: Runtime,
+  testPath: string,
+): Promise<TestResult>;
+可以在我们的默认jasmine2测试运行器包中找到此类函数的示例。
+
+testURL [串]
+默认： about:blank
+
+此选项设置jsdom环境的URL。它反映在诸如的属性中location.href。
+
+timers [串]
+默认： real
+
+将此值设置为fake允许使用假定时器来执行诸如此类的功能setTimeout。当一段代码设置一个我们不想在测试中等待的长超时时，伪定时器很有用。
+
+transform [object <string，string>]
+默认： undefined
+
+从正则表达式到变换器路径的映射。变换器是一个为转换源文件提供同步功能的模块。例如，如果您希望能够在模块或节点尚不支持的测试中使用新的语言功能，则可以插入许多将未来版本的JavaScript编译为当前版本的编译器之一。示例：请参阅examples / typescript示例或webpack教程。
+
+此类编译器的示例包括Babel，TypeScript和async-to-gen。
+
+注意：除非文件已更改，否则每个文件只运行一次转换器。在开发变换器的过程中，运行Jest可以有效--no-cache地删除Jest的缓存。
+
+注意：如果您正在使用babel-jest变换器并希望使用其他代码预处理器，请记住，当以任何方式覆盖“transform”时，babel-jest不再自动加载。如果要使用它来编译JavaScript代码，则必须明确定义它。请参阅babel-jest插件
+
+transformIgnorePatterns [阵列]
+默认： ["/node_modules/"]
+
+在转换之前与所有源文件路径匹配的正则表达式模式字符串数组。如果测试路径与任何模式匹配，则不会进行转换。
+
+这些模式字符串与完整路径匹配。使用<rootDir>字符串标记包含项目根目录的路径，以防止它意外忽略可能具有不同根目录的不同环境中的所有文件。
+
+示例：["<rootDir>/bower_components/", "<rootDir>/node_modules/"]。
+
+有时它会发生（特别是在React Native或TypeScript项目中）第三方模块作为未传输发布。由于node_modules默认情况下不会转换内部的所有文件，因此Jest将无法理解这些模块中的代码，从而导致语法错误。为了克服这个问题，您可以使用transformIgnorePatterns白名单这些模块。您可以在React Native Guide中找到这个用例的一个很好的例子。
+
+unmockedModulePathPatterns [阵列]
+默认： []
+
+在模块加载器之前与所有模块匹配的正则表达式模式字符串数组将自动为它们返回模拟。如果模块的路径与此列表中的任何模式匹配，则模块加载器不会自动模拟它。
+
+这对于一些常用的“实用程序”模块很有用，这些模块几乎总是一直用作实现细节（如下划线/低速划线等）。保持此列表尽可能小并且始终在单个测试中使用显式jest.mock()/ jest.unmock()调用通常是最佳做法。对于测试的其他读者来说，明确的每次测试设置更容易推断测试将运行的环境。
+
+通过jest.mock()在测试文件的顶部显式调用，可以在单个测试中覆盖此设置。
+
+verbose [布尔]
+默认： false
+
+指示是否应在运行期间报告每个单独的测试。执行后，所有错误仍将显示在底部。
+
+watchPathIgnorePatterns [阵列]
+默认： []
+
+在监视模式下重新运行测试之前，与所有源文件路径匹配的一组RegExp模式。如果文件路径与任何模式匹配，则在更新时，它不会触发重新运行的测试。
+
+这些模式与完整路径匹配。使用<rootDir>字符串标记包含项目根目录的路径，以防止它意外忽略可能具有不同根目录的不同环境中的所有文件。示例：["<rootDir>/node_modules/"]。

@@ -1,0 +1,486 @@
+Wrapper
+Vue Test Utils 是一个基于包裹器的 API。
+
+一个 Wrapper 是一个包括了一个挂载组件或 vnode，以及测试该组件或 vnode 的方法。
+
+# 属性
+#vm
+Component：这是该 Vue 实例。你可以通过 wrapper.vm 访问一个实例所有的方法和属性。这只存在于 Vue 组件包裹器中。
+
+#element
+HTMLElement：包裹器的根 DOM 节点
+
+#options
+#options.attachedToDom
+Boolean：如果 attachToDom 传递给了 mount 或 shallowMount 则为真
+
+#options.sync
+Boolean：如果挂载选项里的 sync 不是 false 则为真
+
+# 方法
+# attributes()
+返回 Wrapper DOM 节点的特性对象。
+
+返回值：{[attribute: string]: any}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+expect(wrapper.attributes().id).toBe('foo')
+# classes()
+返回 Wrapper DOM 节点的 class。
+
+返回 class 名称的数组。
+
+返回值：Array<{string}>
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+expect(wrapper.classes()).toContain('bar')
+# contains(selector)
+判断 Wrapper 是否包含了一个匹配选择器的元素或组件。
+
+参数：
+
+{string|Component} selector
+返回值：{boolean}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+import Bar from './Bar.vue'
+
+const wrapper = mount(Foo)
+expect(wrapper.contains('p')).toBe(true)
+expect(wrapper.contains(Bar)).toBe(true)
+延伸阅读：选择器
+# destroy()
+销毁一个 Vue 组件实例。
+
+示例：
+import { mount } from '@vue/test-utils'
+import sinon from 'sinon'
+
+const spy = sinon.stub()
+mount({
+  render: null,
+  destroyed () {
+    spy()
+  }
+}).destroy()
+expect(spy.calledOnce).toBe(true)
+# emitted()
+返回一个包含由 Wrappervm 触发的自定义事件的对象。
+
+返回值：{ [name: string]: Array<Array<any>> }
+
+示例：
+
+import { mount } from '@vue/test-utils'
+
+const wrapper = mount(Component)
+
+wrapper.vm.$emit('foo')
+wrapper.vm.$emit('foo', 123)
+
+/*
+`wrapper.emitted() 返回如下对象：
+{
+  foo: [[], [123]]
+}
+*/
+
+// 断言事件已经被触发
+expect(wrapper.emitted().foo).toBeTruthy()
+
+// 断言事件的数量
+expect(wrapper.emitted().foo.length).toBe(2)
+
+// 断言事件的有效数据
+expect(wrapper.emitted().foo[1]).toEqual([123])
+你也可以把上面的代码写成这样：
+
+// 断言事件已经被触发
+expect(wrapper.emitted('foo')).toBeTruthy()
+
+// 断言事件的数量
+expect(wrapper.emitted('foo').length).toBe(2)
+
+// 断言事件的有效数据
+expect(wrapper.emitted('foo')[1]).toEqual([123])
+该 .emitted() 方法每次被调用时都返回相同的对象，而不是返回一个新的，所以当新事件被触发时该对象会被更新：
+
+const emitted = wrapper.emitted()
+
+expect(emitted.foo.length).toBe(1)
+
+// 想办法让 `wrapper` 触发 "foo" 事件
+
+expect(emitted.foo.length).toBe(2)
+# emittedByOrder()
+返回一个包含由 Wrappervm 触发的自定义事件的数组。
+
+返回值：Array<{ name: string, args: Array<any> }>
+
+示例：
+
+import { mount } from '@vue/test-utils'
+
+const wrapper = mount(Component)
+
+wrapper.vm.$emit('foo')
+wrapper.vm.$emit('bar', 123)
+
+/*
+`wrapper.emittedByOrder() 返回如下数组：
+[
+  { name: 'foo', args: [] },
+  { name: 'bar', args: [123] }
+]
+*/
+
+// 断言事件的触发顺序
+expect(wrapper.emittedByOrder().map(e => e.name)).toEqual(['foo', 'bar'])
+# exists()
+断言 Wrapper 或 WrapperArray 是否存在。
+
+如果被一个空 Wrapper 或 WrapperArray 调用则返回 false。
+
+返回值：{boolean}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+expect(wrapper.exists()).toBe(true)
+expect(wrapper.find('does-not-exist').exists()).toBe(false)
+expect(wrapper.findAll('div').exists()).toBe(true)
+expect(wrapper.findAll('does-not-exist').exists()).toBe(false)
+# find(selector)
+返回匹配选择器的第一个 DOM 节点或 Vue 组件的 Wrapper。
+
+可以使用任何有效的选择器。
+
+参数：
+
+{string|Component} selector
+返回值：{Wrapper}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+import Bar from './Bar.vue'
+
+const wrapper = mount(Foo)
+
+const div = wrapper.find('div')
+expect(div.is('div')).toBe(true)
+
+const bar = wrapper.find(Bar)
+expect(bar.is(Bar)).toBe(true)
+
+const barByName = wrapper.find({ name: 'bar' })
+expect(barByName.is(Bar)).toBe(true)
+
+const fooRef = wrapper.find({ ref: 'foo' })
+expect(fooRef.is(Foo)).toBe(true)
+# findAll(selector)
+返回一个 WrapperArray。
+
+可以使用任何有效的选择器。
+
+参数：
+
+{string|Component} selector
+返回值：{WrapperArray}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+import Bar from './Bar.vue'
+
+const wrapper = mount(Foo)
+const div = wrapper.findAll('div').at(0)
+expect(div.is('div')).toBe(true)
+const bar = wrapper.findAll(Bar).at(0)
+expect(bar.is(Bar)).toBe(true)
+# html()
+返回 Wrapper DOM 节点的 HTML 字符串。
+
+返回值：{string}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+expect(wrapper.html()).toBe('<div><p>Foo</p></div>')
+# is(selector)
+断言 Wrapper DOM 节点或 vm 匹配选择器。
+
+参数：
+
+{string|Component} selector
+返回值：{boolean}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+expect(wrapper.is('div')).toBe(true)
+# isEmpty()
+断言 Wrapper 并不包含子节点。
+
+返回值：{boolean}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+expect(wrapper.isEmpty()).toBe(true)
+# isVisible()
+断言 Wrapper 是否可见。
+
+如果有一个祖先元素拥有 display: none 或 visibility: hidden 样式则返回 false。
+
+这可以用于断言一个组件是否被 v-show 所隐藏。
+
+返回值：{boolean}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+expect(wrapper.isVisible()).toBe(true)
+expect(wrapper.find('.is-not-visible').isVisible()).toBe(false)
+# isVueInstance()
+断言 Wrapper 是 Vue 示例。
+
+返回值：{boolean}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+expect(wrapper.isVueInstance()).toBe(true)
+# name()
+如果 Wrapper 包含一个 Vue 示例则返回组件名，否则返回 Wrapper DOM 节点的标签名。
+
+返回值：{string}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+expect(wrapper.name()).toBe('Foo')
+const p = wrapper.find('p')
+expect(p.name()).toBe('p')
+# props()
+返回 Wrappervm 的 props 对象。
+
+注意：该包裹器必须包含一个 Vue 示例。
+
+返回值：{[prop: string]: any}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo, {
+  propsData: {
+    bar: 'baz'
+  }
+})
+expect(wrapper.props().bar).toBe('baz')
+# setChecked(value)
+设置一个 <input> 单选框或复选框的值。
+
+参数：
+
+{Boolean} selected
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+const option = wrapper.find('input[type="radio"]')
+option.setChecked()
+# setData(data)
+设置 Wrappervm 的属性。
+
+setData 通过合并现有的属性生效，被覆写的数组除外。
+
+注意：该包裹器必须包含一个 Vue 示例。
+
+参数：
+
+{Object} data
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+wrapper.setData({ foo: 'bar' })
+expect(wrapper.vm.foo).toBe('bar')
+# setMethods(methods)
+设置 Wrappervm 的方法并强制更新。
+
+注意：该包裹器必须包含一个 Vue 示例。
+
+参数：
+
+{Object} methods
+示例：
+
+import { mount } from '@vue/test-utils'
+import sinon from 'sinon'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+const clickMethodStub = sinon.stub()
+
+wrapper.setMethods({ clickMethod: clickMethodStub })
+wrapper.find('button').trigger('click')
+expect(clickMethodStub.called).toBe(true)
+# setProps(props)
+参数：
+
+{Object} props
+用法：
+
+设置 Wrappervm 的 prop 并强制更新。
+
+注意：该包裹器必须包含一个 Vue 示例。
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+wrapper.setProps({ foo: 'bar' })
+expect(wrapper.vm.foo).toBe('bar')
+你也可以传递一个 propsData 对象，这会用该对象来初始化 Vue 示例。
+
+// Foo.vue
+export default {
+  props: {
+    foo: {
+      type: String,
+      required: true
+    }
+  }
+}
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo, {
+  propsData: {
+    foo: 'bar'
+  }
+})
+
+expect(wrapper.vm.foo).toBe('bar')
+# setSelected(value)
+在一个 <select> 中选中某个特定的 <option>。
+
+参数：
+
+{Boolean} selected
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = shallowMount(Foo)
+const options = wrapper.find('select').findAll('option')
+
+options.at(1).setSelected()
+expect(wrapper.text()).to.contain('option1')
+# setValue(value)
+设置一个 <input> 文本的值。
+
+参数：
+
+{String} value
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+const input = wrapper.find('input[type="text"]')
+input.setValue('some value')
+# text()
+返回 Wrapper 的文本内容。
+
+返回值：{string}
+
+示例：
+
+import { mount } from '@vue/test-utils'
+import Foo from './Foo.vue'
+
+const wrapper = mount(Foo)
+expect(wrapper.text()).toBe('bar')
+# trigger(eventType [, options ])
+在该 Wrapper DOM 节点上触发一个事件。
+
+trigger 带有一个可选的 options 对象。options 对象内的属性会被添加到事件上。
+
+参数：
+
+{string} eventType必填
+{Object} options可选
+示例：
+
+import { mount } from '@vue/test-utils'
+import sinon from 'sinon'
+import Foo from './Foo'
+
+const clickHandler = sinon.stub()
+const wrapper = mount(Foo, {
+  propsData: { clickHandler }
+})
+
+wrapper.trigger('click')
+
+wrapper.trigger('click', {
+  button: 0
+})
+
+expect(clickHandler.called).toBe(true)
+设置事件目标：
+在这背后，trigger 创建了一个 Event 对象并分发到其包裹器的元素上。
+
+我们没有机会编辑 Event 对象的 target 值，所以你无法在选项对象中设置 target。
+
+如果想在 target 中添加一个特性，你需要在调用 trigger 之前设置包裹器元素的那个值。你可以通过 element 属性做到这件事。
+
+const input = wrapper.find('input')
+input.element.value = 100
+input.trigger('click')
